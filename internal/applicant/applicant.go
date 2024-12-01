@@ -1,1 +1,1 @@
-package applicant
+package main
