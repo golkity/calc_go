@@ -29,88 +29,50 @@ func IsSign(value rune) bool {
 }
 
 func Calc(expression string) (float64, error) {
+	expression = strings.ReplaceAll(expression, " ", "")
+
 	if len(expression) < 3 {
-		return 0, fmt.Errorf("???")
+		return 0, fmt.Errorf("expression is too short")
 	}
-	//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	if IsSign(rune(expression[0])) || IsSign(rune(expression[len(expression)-1])) {
+		return 0, fmt.Errorf("expression cannot start or end with an operator")
+	}
+
+	for {
+		openIdx := strings.LastIndex(expression, "(")
+		if openIdx == -1 {
+			break
+		}
+
+		closeIdx := strings.Index(expression[openIdx:], ")")
+		if closeIdx == -1 {
+			return 0, fmt.Errorf("missing closing parenthesis")
+		}
+
+		subExpression := expression[openIdx+1 : openIdx+closeIdx]
+		result, err := Calc(subExpression)
+		if err != nil {
+			return 0, err
+		}
+
+		expression = expression[:openIdx] + strconv.FormatFloat(result, 'f', 0, 64) + expression[openIdx+closeIdx+1:]
+	}
+
 	var res float64
 	var b string
-	var c rune = 0
-	var resflag bool = false
-	var isc int
-	var countc int = 0
-	//////////////////////////////////////////////////////////////////////////////////////////////////////
-	for _, value := range expression {
-		if IsSign(value) {
-			countc++
-		}
-	}
-	//////////////////////////////////////////////////////////////////////////////////////////////////////
-	if IsSign(rune(expression[0])) || IsSign(rune(expression[len(expression)-1])) {
-		return 0, fmt.Errorf("???")
-	}
-	for i, value := range expression {
-		if value == '(' {
-			isc = i
-		}
-		if value == ')' {
-			calc, err := Calc(expression[isc+1 : i])
-			if err != nil {
-				return 0, fmt.Errorf("???")
-			}
-			calcstr := strconv.FormatFloat(calc, 'f', 0, 64)
-			i2 := i
-			i -= len(expression[isc:i+1]) - len(calcstr)
-			expression = strings.Replace(expression, expression[isc:i2+1], calcstr, 1) // Меняем скобки на результат выражения в них
-		}
-	}
-	if countc > 1 {
-		for i := 1; i < len(expression); i++ {
-			value := rune(expression[i])
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			//Умножение и деление
-			if value == '*' || value == '/' {
-				var imin int = i - 1
-				if imin != 0 {
-					for !IsSign(rune(expression[imin])) && imin > 0 {
-						imin--
-					}
-					imin++
-				}
-				var imax int = i + 1
-				if imax == len(expression) {
-					imax--
-				} else {
-					for !IsSign(rune(expression[imax])) && imax < len(expression)-1 {
-						imax++
-					}
-				}
-				if imax == len(expression)-1 {
-					imax++
-				}
-				calc, err := Calc(expression[imin:imax])
-				if err != nil {
-					return 0, fmt.Errorf("???")
-				}
-				calcstr := strconv.FormatFloat(calc, 'f', 0, 64)
-				i -= len(expression[isc:i+1]) - len(calcstr) - 1
-				expression = strings.Replace(expression, expression[imin:imax], calcstr, 1) // Меняем скобки на результат выражения в них
-			}
-			if value == '+' || value == '-' || value == '*' || value == '/' {
-				c = value
-			}
-		}
-	}
-	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	var currentOp rune
+	var resFlag bool
+
 	for _, value := range expression + "s" {
 		switch {
 		case value == ' ':
 			continue
-		case value > 47 && value < 58: // Если это цифра
+		case value >= '0' && value <= '9':
 			b += string(value)
-		case IsSign(value) || value == 's': // Если это знак
-			if resflag {
-				switch c {
+		case IsSign(value) || value == 's':
+			if resFlag {
+				switch currentOp {
 				case '+':
 					res += StringToFloat64(b)
 				case '-':
@@ -118,19 +80,21 @@ func Calc(expression string) (float64, error) {
 				case '*':
 					res *= StringToFloat64(b)
 				case '/':
+					if b == "0" {
+						return 0, fmt.Errorf("division by zero")
+					}
 					res /= StringToFloat64(b)
+				default:
+					return 0, fmt.Errorf("unknown operator: %c", currentOp)
 				}
 			} else {
-				resflag = true
+				resFlag = true
 				res = StringToFloat64(b)
 			}
-			b = strings.ReplaceAll(b, b, "")
-			c = value
-
-			/////////////////////////////////////////////////////////////////////////////////////////////
-		case value == 's':
+			b = ""
+			currentOp = value
 		default:
-			return 0, fmt.Errorf("Not correct input")
+			return 0, fmt.Errorf("invalid character in expression: %c", value)
 		}
 	}
 	return res, nil
