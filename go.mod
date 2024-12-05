@@ -1,3 +1,3 @@
-module calc_go
+module github.com/golkity/calc_go
 
 go 1.23.2
